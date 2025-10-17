@@ -11,7 +11,7 @@ esphome:
                      id(family_room_aqi).has_state() &&
                      id(outdoor_aqi).has_state();
           timeout: 90s
-      - script.execute: refresh_display_and_sleep
+      - script.execute: schedule_refresh
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -72,47 +72,47 @@ sensor:
     id: family_room_co2
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: sensor.family_room_air_quality_index_epa
     id: family_room_aqi
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: sensor.purple_air_outside_air_quality_index_epa
     id: outdoor_aqi
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: weather.tomorrow_io_nowcast
     attribute: temperature
     id: nowcast_temperature
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: weather.tomorrow_io_nowcast
     attribute: humidity
     id: nowcast_humidity
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: weather.tomorrow_io_nowcast
     attribute: wind_speed
     id: nowcast_wind_speed
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: weather.tomorrow_io_nowcast
     attribute: precipitation_probability
     id: nowcast_precipitation_probability
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
 
 text_sensor:
   - platform: homeassistant
@@ -120,9 +120,14 @@ text_sensor:
     id: nowcast_summary
     on_value:
       then:
-        - script.execute: refresh_display_and_sleep
+        - script.execute: schedule_refresh
 
 script:
+  - id: schedule_refresh
+    mode: restart
+    then:
+      - delay: 5s
+      - script.execute: refresh_display_and_sleep
   - id: refresh_display_and_sleep
     mode: restart
     then:
