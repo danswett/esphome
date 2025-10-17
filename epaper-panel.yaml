@@ -1,6 +1,14 @@
 esphome:
   name: epaper-panel
   friendly_name: ePaper Panel
+  on_boot:
+    priority: -100
+    then:
+      - wait_until:
+          condition:
+            lambda: return id(living_room_temperature).has_state() || id(living_room_humidity).has_state() || id(weather_summary).has_state();
+          timeout: 30s
+      - script.execute: refresh_display_and_sleep
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -18,6 +26,10 @@ api:
 ota:
   - platform: esphome
     password: "84622fc91e2dce7290ce38cc33e68251"
+
+deep_sleep:
+  id: deep_sleep_ctrl
+  sleep_duration: 10min
 
 wifi:
   ssid: !secret wifi_ssid
@@ -51,13 +63,13 @@ sensor:
     id: living_room_temperature
     on_value:
       then:
-        - component.update: main_display
+        - script.execute: refresh_display_and_sleep
   - platform: homeassistant
     entity_id: sensor.living_room_humidity
     id: living_room_humidity
     on_value:
       then:
-        - component.update: main_display
+        - script.execute: refresh_display_and_sleep
 
 text_sensor:
   - platform: homeassistant
@@ -65,7 +77,15 @@ text_sensor:
     id: weather_summary
     on_value:
       then:
-        - component.update: main_display
+        - script.execute: refresh_display_and_sleep
+
+script:
+  - id: refresh_display_and_sleep
+    mode: restart
+    then:
+      - component.update: main_display
+      - delay: 10s
+      - deep_sleep.enter: deep_sleep_ctrl
 
 spi:
   clk_pin: GPIO8
@@ -81,7 +101,7 @@ display:
       inverted: true
     reset_pin: GPIO2
     model: 7.50inv2
-    update_interval: 1min
+    update_interval: never
     lambda: |-
       it.fill(esphome::color::Color::WHITE);
 
