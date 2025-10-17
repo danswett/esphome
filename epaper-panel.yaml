@@ -49,6 +49,12 @@ time:
   - platform: homeassistant
     id: homeassistant_time
 
+globals:
+  - id: last_update_epoch
+    type: int
+    restore_value: no
+    initial_value: '0'
+
 font:
   - file: "gfonts://Roboto"
     id: font_large
@@ -127,6 +133,10 @@ script:
                      id(family_room_aqi).has_state() &&
                      id(outdoor_aqi).has_state();
           then:
+            - lambda: |-
+                if (id(homeassistant_time).now().is_valid()) {
+                  id(last_update_epoch) = id(homeassistant_time).now().timestamp;
+                }
             - component.update: main_display
             - delay: 15s
             - deep_sleep.enter: deep_sleep_ctrl
@@ -155,89 +165,131 @@ display:
     lambda: |-
       it.fill(esphome::display::COLOR_OFF);
 
-      it.printf(20, 40, id(font_medium), "Family Room Air Quality");
+      const int SCREEN_WIDTH = 800;
+      const int MARGIN = 20;
+      const int COLUMN_GAP = 40;
+      const int COLUMN_WIDTH = (SCREEN_WIDTH - (2 * MARGIN) - COLUMN_GAP) / 2;
+      const int LEFT_COLUMN_X = MARGIN;
+      const int RIGHT_COLUMN_X = LEFT_COLUMN_X + COLUMN_WIDTH + COLUMN_GAP;
+      const int HEADER_BOTTOM = MARGIN + 40;
+      const int CONTENT_TOP = HEADER_BOTTOM + 20;
 
-      auto draw_gauge = [&](int center_x, int center_y, float value, float min_value, float max_value, const char *label, const char *unit) {
-        const int outer_radius = 80;
-        const int inner_radius = 72;
-        it.circle(center_x, center_y, outer_radius);
-        it.circle(center_x, center_y, inner_radius);
-        it.printf(center_x, center_y + outer_radius + 14, id(font_small), esphome::display::TextAlign::TOP_CENTER, "%s", label);
+      it.printf(LEFT_COLUMN_X, MARGIN, id(font_medium), "Family Room Air Quality");
+      it.draw_horizontal_line(MARGIN, HEADER_BOTTOM, SCREEN_WIDTH - (2 * MARGIN));
 
+      auto draw_sensor_row = [&](int row_y, const char *label, float value, const char *unit) -> int {
+        it.printf(LEFT_COLUMN_X, row_y, id(font_small), "%s", label);
+        const int value_anchor_x = LEFT_COLUMN_X + COLUMN_WIDTH;
+        const int value_offset_y = row_y - 6;
         if (!isnan(value)) {
-          float clamped = value;
-          if (clamped < min_value) {
-            clamped = min_value;
-          }
-          if (clamped > max_value) {
-            clamped = max_value;
-          }
-          const float span = max_value - min_value;
-          if (span > 0.0f) {
-            float ratio = (clamped - min_value) / span;
-            float angle = (ratio * 240.0f) - 120.0f;
-            const float pi = 3.14159265f;
-            float radians = (angle - 90.0f) * pi / 180.0f;
-            int needle_x = center_x + static_cast<int>(cosf(radians) * (inner_radius - 10));
-            int needle_y = center_y + static_cast<int>(sinf(radians) * (inner_radius - 10));
-            it.line(center_x, center_y, needle_x, needle_y);
-            it.filled_circle(center_x, center_y, 4);
-          }
-
           if (unit != nullptr && unit[0] != '\0') {
-            it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "%.0f %s", value, unit);
+            it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%.0f %s", value, unit);
           } else {
-            it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "%.0f", value);
+            it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%.0f", value);
           }
         } else {
-          it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "--");
+          it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "--");
         }
-
-        it.printf(center_x - outer_radius + 4, center_y + outer_radius - 6, id(font_small), esphome::display::TextAlign::TOP_LEFT, "%.0f", min_value);
-        it.printf(center_x + outer_radius - 4, center_y + outer_radius - 6, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "%.0f", max_value);
+        return row_y + 64;
       };
 
-      draw_gauge(140, 210, id(family_room_co2).state, 400.0f, 2000.0f, "CO₂", "ppm");
-      draw_gauge(400, 210, id(family_room_aqi).state, 0.0f, 200.0f, "Family AQI", "");
-      draw_gauge(660, 210, id(outdoor_aqi).state, 0.0f, 200.0f, "Outdoor AQI", "");
+      auto render_wrapped_text = [&](int x, int base_y, const std::string &text, esphome::display::Font *font, int max_width) -> int {
+        int y_cursor = base_y;
+        auto print_line = [&](const std::string &line) {
+          int x1, y1, w, h;
+          it.get_text_bounds(x, y_cursor, font, line.c_str(), &x1, &y1, &w, &h);
+          it.printf(x, y_cursor, font, "%s", line.c_str());
+          y_cursor += h + 6;
+        };
 
-      int weather_y = 340;
-      if (id(nowcast_summary).has_state()) {
-        it.printf(20, weather_y, id(font_medium), "%s", id(nowcast_summary).state.c_str());
-        weather_y += 40;
+        std::string current_line;
+        size_t position = 0;
+        while (position < text.size()) {
+          while (position < text.size() && text[position] == ' ') {
+            position++;
+          }
+          if (position >= text.size()) {
+            break;
+          }
+
+          size_t next_space = text.find(' ', position);
+          std::string word = text.substr(position, next_space == std::string::npos ? text.size() - position : next_space - position);
+          std::string candidate = current_line.empty() ? word : current_line + " " + word;
+
+          int x1, y1, w, h;
+          it.get_text_bounds(x, y_cursor, font, candidate.c_str(), &x1, &y1, &w, &h);
+          if (!current_line.empty() && w > max_width) {
+            print_line(current_line);
+            current_line = word;
+          } else {
+            current_line = candidate;
+          }
+
+          if (next_space == std::string::npos) {
+            break;
+          }
+          position = next_space + 1;
+        }
+
+        if (!current_line.empty()) {
+          print_line(current_line);
+        }
+
+        return y_cursor;
+      };
+
+      auto draw_weather_line = [&](int x, int y, const std::string &text) -> int {
+        int x1, y1, w, h;
+        it.get_text_bounds(x, y, id(font_small), text.c_str(), &x1, &y1, &w, &h);
+        it.printf(x, y, id(font_small), "%s", text.c_str());
+        return y + h + 6;
+      };
+
+      int sensor_y = CONTENT_TOP;
+      sensor_y = draw_sensor_row(sensor_y, "CO₂", id(family_room_co2).state, "ppm");
+      sensor_y = draw_sensor_row(sensor_y, "Family AQI", id(family_room_aqi).state, "");
+      sensor_y = draw_sensor_row(sensor_y, "Outdoor AQI", id(outdoor_aqi).state, "");
+
+      int weather_y = CONTENT_TOP;
+      if (id(nowcast_summary).has_state() && !id(nowcast_summary).state.empty()) {
+        weather_y = render_wrapped_text(RIGHT_COLUMN_X, weather_y, id(nowcast_summary).state, id(font_medium), COLUMN_WIDTH);
       } else {
-        it.printf(20, weather_y, id(font_medium), "Weather data unavailable");
-        weather_y += 40;
+        weather_y = render_wrapped_text(RIGHT_COLUMN_X, weather_y, "Weather data unavailable", id(font_medium), COLUMN_WIDTH);
       }
 
       if (!isnan(id(nowcast_temperature).state)) {
-        it.printf(20, weather_y, id(font_small), "Temperature: %.1f°", id(nowcast_temperature).state);
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, esphome::str_sprintf("Temperature: %.1f°", id(nowcast_temperature).state));
       } else {
-        it.printf(20, weather_y, id(font_small), "Temperature: --");
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, "Temperature: --°");
       }
-      weather_y += 28;
 
       if (!isnan(id(nowcast_humidity).state)) {
-        it.printf(20, weather_y, id(font_small), "Humidity: %.0f%%", id(nowcast_humidity).state);
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, esphome::str_sprintf("Humidity: %.0f%%", id(nowcast_humidity).state));
       } else {
-        it.printf(20, weather_y, id(font_small), "Humidity: --%%");
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, "Humidity: --%%");
       }
-      weather_y += 28;
 
       if (!isnan(id(nowcast_wind_speed).state)) {
-        it.printf(20, weather_y, id(font_small), "Wind: %.1f", id(nowcast_wind_speed).state);
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, esphome::str_sprintf("Wind: %.1f", id(nowcast_wind_speed).state));
       } else {
-        it.printf(20, weather_y, id(font_small), "Wind: --");
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, "Wind: --");
       }
-      weather_y += 28;
 
       if (!isnan(id(nowcast_precipitation_probability).state)) {
-        it.printf(20, weather_y, id(font_small), "Precipitation Chance: %.0f%%", id(nowcast_precipitation_probability).state);
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, esphome::str_sprintf("Precipitation Chance: %.0f%%", id(nowcast_precipitation_probability).state));
       } else {
-        it.printf(20, weather_y, id(font_small), "Precipitation Chance: --%%");
+        weather_y = draw_weather_line(RIGHT_COLUMN_X, weather_y, "Precipitation Chance: --%%");
       }
 
-      if (id(homeassistant_time).now().is_valid()) {
-        it.strftime(780, 40, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "%a %d %b", id(homeassistant_time).now());
-        it.strftime(780, 90, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%H:%M", id(homeassistant_time).now());
+      if (id(last_update_epoch) > 0) {
+        auto last_update = esphome::time::ESPTime::from_epoch_local(id(last_update_epoch));
+        if (last_update.is_valid()) {
+          char buffer[40];
+          last_update.strftime(buffer, sizeof(buffer), "%a %d %b %H:%M");
+          it.printf(SCREEN_WIDTH - MARGIN, MARGIN, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "Last updated %s", buffer);
+        } else {
+          it.printf(SCREEN_WIDTH - MARGIN, MARGIN, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "Last updated --");
+        }
+      } else {
+        it.printf(SCREEN_WIDTH - MARGIN, MARGIN, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "Last updated --");
       }
