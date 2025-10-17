@@ -193,11 +193,11 @@ display:
         return row_y + 64;
       };
 
-      auto render_wrapped_text = [&](int x, int base_y, const std::string &text, esphome::display::Font *font, int max_width) -> int {
+      auto render_wrapped_text = [&](int x, int base_y, const std::string &text, esphome::font::Font *font, int max_width) -> int {
         int y_cursor = base_y;
         auto print_line = [&](const std::string &line) {
           int x1, y1, w, h;
-          it.get_text_bounds(x, y_cursor, font, line.c_str(), &x1, &y1, &w, &h);
+          it.get_text_bounds(x, y_cursor, line.c_str(), font, esphome::display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h);
           it.printf(x, y_cursor, font, "%s", line.c_str());
           y_cursor += h + 6;
         };
@@ -217,7 +217,7 @@ display:
           std::string candidate = current_line.empty() ? word : current_line + " " + word;
 
           int x1, y1, w, h;
-          it.get_text_bounds(x, y_cursor, font, candidate.c_str(), &x1, &y1, &w, &h);
+          it.get_text_bounds(x, y_cursor, candidate.c_str(), font, esphome::display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h);
           if (!current_line.empty() && w > max_width) {
             print_line(current_line);
             current_line = word;
@@ -240,7 +240,7 @@ display:
 
       auto draw_weather_line = [&](int x, int y, const std::string &text) -> int {
         int x1, y1, w, h;
-        it.get_text_bounds(x, y, id(font_small), text.c_str(), &x1, &y1, &w, &h);
+        it.get_text_bounds(x, y, text.c_str(), id(font_small), esphome::display::TextAlign::TOP_LEFT, &x1, &y1, &w, &h);
         it.printf(x, y, id(font_small), "%s", text.c_str());
         return y + h + 6;
       };
@@ -282,7 +282,7 @@ display:
       }
 
       if (id(last_update_epoch) > 0) {
-        auto last_update = esphome::time::ESPTime::from_epoch_local(id(last_update_epoch));
+        auto last_update = esphome::ESPTime::from_epoch_local(id(last_update_epoch));
         if (last_update.is_valid()) {
           char buffer[40];
           last_update.strftime(buffer, sizeof(buffer), "%a %d %b %H:%M");
