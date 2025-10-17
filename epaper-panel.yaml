@@ -6,7 +6,10 @@ esphome:
     then:
       - wait_until:
           condition:
-            lambda: return id(living_room_temperature).has_state() || id(living_room_humidity).has_state() || id(weather_summary).has_state();
+            lambda: |-
+              return id(living_room_temperature).has_state() ||
+                     id(living_room_humidity).has_state() ||
+                     id(weather_summary).has_state();
           timeout: 30s
       - script.execute: refresh_display_and_sleep
 
@@ -103,7 +106,7 @@ display:
     model: 7.50inv2
     update_interval: never
     lambda: |-
-      it.fill(esphome::color::Color::WHITE);
+      it.fill(esphome::display::COLOR_OFF);
 
       it.printf(20, 40, id(font_medium), "Living Room");
 
