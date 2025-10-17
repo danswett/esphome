@@ -7,9 +7,10 @@ esphome:
       - wait_until:
           condition:
             lambda: |-
-              return id(living_room_temperature).has_state() ||
-                     id(living_room_humidity).has_state() ||
-                     id(weather_summary).has_state();
+              return id(family_room_co2).has_state() ||
+                     id(family_room_aqi).has_state() ||
+                     id(outdoor_aqi).has_state() ||
+                     id(nowcast_summary).has_state();
           timeout: 30s
       - script.execute: refresh_display_and_sleep
 
@@ -62,22 +63,56 @@ font:
 
 sensor:
   - platform: homeassistant
-    entity_id: sensor.living_room_temperature
-    id: living_room_temperature
+    entity_id: sensor.aranet_family_room_carbon_dioxide
+    id: family_room_co2
     on_value:
       then:
         - script.execute: refresh_display_and_sleep
   - platform: homeassistant
-    entity_id: sensor.living_room_humidity
-    id: living_room_humidity
+    entity_id: sensor.family_room_air_quality_index_epa
+    id: family_room_aqi
+    on_value:
+      then:
+        - script.execute: refresh_display_and_sleep
+  - platform: homeassistant
+    entity_id: sensor.purple_air_outside_air_quality_index_epa
+    id: outdoor_aqi
+    on_value:
+      then:
+        - script.execute: refresh_display_and_sleep
+  - platform: homeassistant
+    entity_id: weather.tomorrow_io_nowcast
+    attribute: temperature
+    id: nowcast_temperature
+    on_value:
+      then:
+        - script.execute: refresh_display_and_sleep
+  - platform: homeassistant
+    entity_id: weather.tomorrow_io_nowcast
+    attribute: humidity
+    id: nowcast_humidity
+    on_value:
+      then:
+        - script.execute: refresh_display_and_sleep
+  - platform: homeassistant
+    entity_id: weather.tomorrow_io_nowcast
+    attribute: wind_speed
+    id: nowcast_wind_speed
+    on_value:
+      then:
+        - script.execute: refresh_display_and_sleep
+  - platform: homeassistant
+    entity_id: weather.tomorrow_io_nowcast
+    attribute: precipitation_probability
+    id: nowcast_precipitation_probability
     on_value:
       then:
         - script.execute: refresh_display_and_sleep
 
 text_sensor:
   - platform: homeassistant
-    entity_id: weather.home
-    id: weather_summary
+    entity_id: weather.tomorrow_io_nowcast
+    id: nowcast_summary
     on_value:
       then:
         - script.execute: refresh_display_and_sleep
@@ -108,24 +143,86 @@ display:
     lambda: |-
       it.fill(esphome::display::COLOR_OFF);
 
-      it.printf(20, 40, id(font_medium), "Living Room");
+      it.printf(20, 40, id(font_medium), "Family Room Air Quality");
 
-      if (!isnan(id(living_room_temperature).state)) {
-        it.printf(20, 120, id(font_large), "%.1f°C", id(living_room_temperature).state);
+      auto draw_gauge = [&](int center_x, int center_y, float value, float min_value, float max_value, const char *label, const char *unit) {
+        const int outer_radius = 80;
+        const int inner_radius = 72;
+        it.circle(center_x, center_y, outer_radius);
+        it.circle(center_x, center_y, inner_radius);
+        it.printf(center_x, center_y + outer_radius + 14, id(font_small), esphome::display::TextAlign::TOP_CENTER, "%s", label);
+
+        if (!isnan(value)) {
+          float clamped = value;
+          if (clamped < min_value) {
+            clamped = min_value;
+          }
+          if (clamped > max_value) {
+            clamped = max_value;
+          }
+          const float span = max_value - min_value;
+          if (span > 0.0f) {
+            float ratio = (clamped - min_value) / span;
+            float angle = (ratio * 240.0f) - 120.0f;
+            const float pi = 3.14159265f;
+            float radians = (angle - 90.0f) * pi / 180.0f;
+            int needle_x = center_x + static_cast<int>(cosf(radians) * (inner_radius - 10));
+            int needle_y = center_y + static_cast<int>(sinf(radians) * (inner_radius - 10));
+            it.line(center_x, center_y, needle_x, needle_y);
+            it.filled_circle(center_x, center_y, 4);
+          }
+
+          if (unit != nullptr && unit[0] != '\0') {
+            it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "%.0f %s", value, unit);
+          } else {
+            it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "%.0f", value);
+          }
+        } else {
+          it.printf(center_x, center_y - 10, id(font_medium), esphome::display::TextAlign::BOTTOM_CENTER, "--");
+        }
+
+        it.printf(center_x - outer_radius + 4, center_y + outer_radius - 6, id(font_small), esphome::display::TextAlign::TOP_LEFT, "%.0f", min_value);
+        it.printf(center_x + outer_radius - 4, center_y + outer_radius - 6, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "%.0f", max_value);
+      };
+
+      draw_gauge(140, 210, id(family_room_co2).state, 400.0f, 2000.0f, "CO₂", "ppm");
+      draw_gauge(400, 210, id(family_room_aqi).state, 0.0f, 200.0f, "Family AQI", "");
+      draw_gauge(660, 210, id(outdoor_aqi).state, 0.0f, 200.0f, "Outdoor AQI", "");
+
+      int weather_y = 340;
+      if (id(nowcast_summary).has_state()) {
+        it.printf(20, weather_y, id(font_medium), "%s", id(nowcast_summary).state.c_str());
+        weather_y += 40;
       } else {
-        it.printf(20, 120, id(font_large), "--.-°C");
+        it.printf(20, weather_y, id(font_medium), "Weather data unavailable");
+        weather_y += 40;
       }
 
-      if (!isnan(id(living_room_humidity).state)) {
-        it.printf(20, 200, id(font_medium), "Humidity: %.0f%%", id(living_room_humidity).state);
+      if (!isnan(id(nowcast_temperature).state)) {
+        it.printf(20, weather_y, id(font_small), "Temperature: %.1f°", id(nowcast_temperature).state);
       } else {
-        it.printf(20, 200, id(font_medium), "Humidity: --%%");
+        it.printf(20, weather_y, id(font_small), "Temperature: --");
       }
+      weather_y += 28;
 
-      if (id(weather_summary).has_state()) {
-        it.printf(20, 280, id(font_medium), "%s", id(weather_summary).state.c_str());
+      if (!isnan(id(nowcast_humidity).state)) {
+        it.printf(20, weather_y, id(font_small), "Humidity: %.0f%%", id(nowcast_humidity).state);
       } else {
-        it.printf(20, 280, id(font_medium), "Weather data unavailable");
+        it.printf(20, weather_y, id(font_small), "Humidity: --%%");
+      }
+      weather_y += 28;
+
+      if (!isnan(id(nowcast_wind_speed).state)) {
+        it.printf(20, weather_y, id(font_small), "Wind: %.1f", id(nowcast_wind_speed).state);
+      } else {
+        it.printf(20, weather_y, id(font_small), "Wind: --");
+      }
+      weather_y += 28;
+
+      if (!isnan(id(nowcast_precipitation_probability).state)) {
+        it.printf(20, weather_y, id(font_small), "Precipitation Chance: %.0f%%", id(nowcast_precipitation_probability).state);
+      } else {
+        it.printf(20, weather_y, id(font_small), "Precipitation Chance: --%%");
       }
 
       if (id(homeassistant_time).now().is_valid()) {
