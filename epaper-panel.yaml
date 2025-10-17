@@ -7,11 +7,10 @@ esphome:
       - wait_until:
           condition:
             lambda: |-
-              return id(family_room_co2).has_state() ||
-                     id(family_room_aqi).has_state() ||
-                     id(outdoor_aqi).has_state() ||
-                     id(nowcast_summary).has_state();
-          timeout: 30s
+              return id(family_room_co2).has_state() &&
+                     id(family_room_aqi).has_state() &&
+                     id(outdoor_aqi).has_state();
+          timeout: 90s
       - script.execute: refresh_display_and_sleep
 
 esp32:
@@ -121,9 +120,22 @@ script:
   - id: refresh_display_and_sleep
     mode: restart
     then:
-      - component.update: main_display
-      - delay: 10s
-      - deep_sleep.enter: deep_sleep_ctrl
+      - if:
+          condition:
+            lambda: |-
+              return id(family_room_co2).has_state() &&
+                     id(family_room_aqi).has_state() &&
+                     id(outdoor_aqi).has_state();
+          then:
+            - component.update: main_display
+            - delay: 15s
+            - deep_sleep.enter: deep_sleep_ctrl
+          else:
+            - logger.log:
+                format: "Waiting for sensor data before refreshing display"
+                level: INFO
+            - delay: 1s
+            - script.execute: refresh_display_and_sleep
 
 spi:
   clk_pin: GPIO8
