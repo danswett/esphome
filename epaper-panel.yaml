@@ -175,7 +175,7 @@ display:
       const int CONTENT_TOP = HEADER_BOTTOM + 20;
 
       it.printf(LEFT_COLUMN_X, MARGIN, id(font_medium), "Family Room Air Quality");
-      it.draw_horizontal_line(MARGIN, HEADER_BOTTOM, SCREEN_WIDTH - (2 * MARGIN));
+      it.horizontal_line(MARGIN, HEADER_BOTTOM, SCREEN_WIDTH - (2 * MARGIN));
 
       auto draw_sensor_row = [&](int row_y, const char *label, float value, const char *unit) -> int {
         it.printf(LEFT_COLUMN_X, row_y, id(font_small), "%s", label);
