@@ -29,22 +29,43 @@ wifi:
     password: "OZrb7lk6llkP"
 
 captive_portal:
-    
-http_request:
-  verify_ssl: false
-  timeout: 10s
-  watchdog_timeout: 15s
 
-online_image:
-  - id: dashboard_image
-    format: BMP
-    type: BINARY
-    buffer_size: 16000
-    url: http://192.168.1.188:10000/lovelace/epaper-display?viewport=800x480&format=bmp&eink=2&invert #change this link to your screenshot link
-    update_interval: 2min
-    on_download_finished:
-      - delay: 0ms
-      - component.update: main_display
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_large
+    size: 48
+  - file: "gfonts://Roboto"
+    id: font_medium
+    size: 32
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 24
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.living_room_temperature
+    id: living_room_temperature
+    on_value:
+      then:
+        - component.update: main_display
+  - platform: homeassistant
+    entity_id: sensor.living_room_humidity
+    id: living_room_humidity
+    on_value:
+      then:
+        - component.update: main_display
+
+text_sensor:
+  - platform: homeassistant
+    entity_id: weather.home
+    id: weather_summary
+    on_value:
+      then:
+        - component.update: main_display
 
 spi:
   clk_pin: GPIO8
@@ -55,11 +76,36 @@ display:
     id: main_display
     cs_pin: GPIO3
     dc_pin: GPIO5
-    busy_pin: 
+    busy_pin:
       number: GPIO4
       inverted: true
     reset_pin: GPIO2
     model: 7.50inv2
-    update_interval: never
+    update_interval: 1min
     lambda: |-
-      it.image(0, 0, id(dashboard_image));
+      it.fill(esphome::color::Color::WHITE);
+
+      it.printf(20, 40, id(font_medium), "Living Room");
+
+      if (!isnan(id(living_room_temperature).state)) {
+        it.printf(20, 120, id(font_large), "%.1f°C", id(living_room_temperature).state);
+      } else {
+        it.printf(20, 120, id(font_large), "--.-°C");
+      }
+
+      if (!isnan(id(living_room_humidity).state)) {
+        it.printf(20, 200, id(font_medium), "Humidity: %.0f%%", id(living_room_humidity).state);
+      } else {
+        it.printf(20, 200, id(font_medium), "Humidity: --%%");
+      }
+
+      if (id(weather_summary).has_state()) {
+        it.printf(20, 280, id(font_medium), "%s", id(weather_summary).state.c_str());
+      } else {
+        it.printf(20, 280, id(font_medium), "Weather data unavailable");
+      }
+
+      if (id(homeassistant_time).now().is_valid()) {
+        it.strftime(780, 40, id(font_small), esphome::display::TextAlign::TOP_RIGHT, "%a %d %b", id(homeassistant_time).now());
+        it.strftime(780, 90, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%H:%M", id(homeassistant_time).now());
+      }
