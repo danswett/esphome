@@ -120,6 +120,18 @@ sensor:
       then:
         - script.execute: schedule_refresh
   - platform: homeassistant
+    entity_id: sensor.pool_thermometer_temperature
+    id: pool_temperature
+    on_value:
+      then:
+        - script.execute: schedule_refresh
+  - platform: homeassistant
+    entity_id: sensor.spa_thermometer_temperature
+    id: spa_temperature
+    on_value:
+      then:
+        - script.execute: schedule_refresh
+  - platform: homeassistant
     entity_id: weather.tomorrow_io_nowcast
     attribute: temperature
     id: nowcast_temperature
@@ -288,6 +300,8 @@ display:
       sensor_y = draw_sensor_row(sensor_y, "CO₂", id(family_room_co2).state, "ppm");
       sensor_y = draw_sensor_row(sensor_y, "Family AQI", id(family_room_aqi).state, "");
       sensor_y = draw_sensor_row(sensor_y, "Outdoor AQI", id(outdoor_aqi).state, "");
+      sensor_y = draw_sensor_row(sensor_y, "Pool", id(pool_temperature).state, "°");
+      sensor_y = draw_sensor_row(sensor_y, "Spa", id(spa_temperature).state, "°");
       sensor_y = draw_sensor_row(sensor_y, "Battery", id(battery_level).state, "%");
 
       int weather_y = CONTENT_TOP;
