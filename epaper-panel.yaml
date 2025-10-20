@@ -80,7 +80,7 @@ sensor:
     pin: GPIO0
     id: battery_voltage
     attenuation: 11db
-    update_interval: 10s
+    update_interval: never
     filters:
       # The onboard voltage divider scales the pack voltage down for the ADC.
       # Adjust this multiplier if your hardware uses a different ratio.
@@ -91,7 +91,7 @@ sensor:
     device_class: battery
     state_class: measurement
     accuracy_decimals: 0
-    update_interval: 10s
+    update_interval: never
     lambda: |-
       if (!id(battery_voltage).has_state()) {
         return NAN;
@@ -107,9 +107,6 @@ sensor:
         return 100.0f;
       }
       return percent;
-    on_value:
-      then:
-        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: sensor.family_room_air_quality_index_epa
     id: family_room_aqi
@@ -180,6 +177,9 @@ script:
   - id: refresh_display_and_sleep
     mode: restart
     then:
+      - component.update: battery_voltage
+      - delay: 200ms
+      - component.update: battery_level
       - if:
           condition:
             lambda: |-
