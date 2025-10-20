@@ -73,6 +73,40 @@ sensor:
     on_value:
       then:
         - script.execute: schedule_refresh
+  - platform: adc
+    pin: GPIO0
+    id: battery_voltage
+    attenuation: 11db
+    update_interval: 30s
+    filters:
+      # The onboard voltage divider scales the pack voltage down for the ADC.
+      # Adjust this multiplier if your hardware uses a different ratio.
+      - multiply: 2.0
+  - platform: template
+    id: battery_level
+    unit_of_measurement: "%"
+    device_class: battery
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 30s
+    lambda: |-
+      if (!id(battery_voltage).has_state()) {
+        return NAN;
+      }
+      const float min_voltage = 3.3f;
+      const float max_voltage = 4.2f;
+      float percent = (id(battery_voltage).state - min_voltage) /
+                      (max_voltage - min_voltage) * 100.0f;
+      if (percent < 0.0f) {
+        return 0.0f;
+      }
+      if (percent > 100.0f) {
+        return 100.0f;
+      }
+      return percent;
+    on_value:
+      then:
+        - script.execute: schedule_refresh
   - platform: homeassistant
     entity_id: sensor.family_room_air_quality_index_epa
     id: family_room_aqi
@@ -254,6 +288,7 @@ display:
       sensor_y = draw_sensor_row(sensor_y, "CO₂", id(family_room_co2).state, "ppm");
       sensor_y = draw_sensor_row(sensor_y, "Family AQI", id(family_room_aqi).state, "");
       sensor_y = draw_sensor_row(sensor_y, "Outdoor AQI", id(outdoor_aqi).state, "");
+      sensor_y = draw_sensor_row(sensor_y, "Battery", id(battery_level).state, "%");
 
       int weather_y = CONTENT_TOP;
       if (id(nowcast_summary).has_state() && !id(nowcast_summary).state.empty()) {
