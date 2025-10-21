@@ -328,7 +328,7 @@ display:
       };
 
       int sensor_y = CONTENT_TOP;
-      sensor_y = draw_sensor_row(sensor_y, "CO₂", id(family_room_co2).state, "ppm");
+      sensor_y = draw_sensor_row(sensor_y, "CO2", id(family_room_co2).state, "ppm");
       sensor_y = draw_sensor_row(sensor_y, "Family AQI", id(family_room_aqi).state, "");
       sensor_y = draw_sensor_row(sensor_y, "Outdoor AQI", id(outdoor_aqi).state, "");
       sensor_y = draw_sensor_row(sensor_y, "Pool", id(pool_temperature).state, "°");
