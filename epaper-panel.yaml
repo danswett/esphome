@@ -83,23 +83,12 @@ sensor:
     internal: true
     attenuation: 11db
     update_interval: never
-  - platform: template
-    id: battery_voltage
-    name: "Battery Voltage"
-    unit_of_measurement: "V"
-    device_class: voltage
-    state_class: measurement
-    accuracy_decimals: 2
-    update_interval: never
-    lambda: |-
-      if (!id(battery_voltage_raw).has_state()) {
-        return NAN;
-      }
-      // The onboard divider drops the pack voltage to the ADC input.
-      // Multiply by the measured divider ratio so we publish the actual
-      // battery voltage. Adjust this if your hardware uses a different ratio.
-      const float divider_ratio = 3.73f;
-      return id(battery_voltage_raw).state * divider_ratio;
+    filters:
+      # The onboard voltage divider scales the pack voltage down for the ADC.
+      # Adjust this multiplier if your hardware uses a different ratio. The
+      # stock driver board divides the voltage roughly by four, so compensate
+      # for that here.
+      - multiply: 4.0
   - platform: template
     id: battery_level
     unit_of_measurement: "%"
