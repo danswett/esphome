@@ -113,7 +113,7 @@ sensor:
       if (!id(battery_voltage).has_state()) {
         return NAN;
       }
-      const float min_voltage = 3.0f;
+      const float min_voltage = 0.0f;
       const float max_voltage = 4.2f;
       float percent = (id(battery_voltage).state - min_voltage) /
                       (max_voltage - min_voltage) * 100.0f;
@@ -248,7 +248,7 @@ display:
       const int LEFT_COLUMN_X = MARGIN;
       const int RIGHT_COLUMN_X = LEFT_COLUMN_X + COLUMN_WIDTH + COLUMN_GAP;
       const int HEADER_BOTTOM = MARGIN + 40;
-      const int CONTENT_TOP = HEADER_BOTTOM + 20;
+      const int CONTENT_TOP = HEADER_BOTTOM + 16;
 
       it.printf(LEFT_COLUMN_X, MARGIN, id(font_medium), "Family Room Air Quality");
       it.horizontal_line(MARGIN, HEADER_BOTTOM, SCREEN_WIDTH - (2 * MARGIN));
@@ -256,7 +256,7 @@ display:
       auto draw_sensor_row = [&](int row_y, const char *label, float value, const char *unit, int decimals = 0) -> int {
         it.printf(LEFT_COLUMN_X, row_y, id(font_small), "%s", label);
         const int value_anchor_x = LEFT_COLUMN_X + COLUMN_WIDTH;
-        const int value_offset_y = row_y - 6;
+        const int value_offset_y = row_y - 4;
         if (!isnan(value)) {
           std::string value_text;
           if (decimals == 0) {
@@ -272,7 +272,7 @@ display:
         } else {
           it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "--");
         }
-        return row_y + 64;
+        return row_y + 56;
       };
 
       auto render_wrapped_text = [&](int x, int base_y, const std::string &text, esphome::font::Font *font, int max_width) -> int {
