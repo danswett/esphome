@@ -90,6 +90,19 @@ sensor:
       # for that here.
       - multiply: 4.0
   - platform: template
+    id: battery_voltage
+    name: "Battery Voltage"
+    unit_of_measurement: "V"
+    state_class: measurement
+    device_class: voltage
+    accuracy_decimals: 2
+    update_interval: never
+    lambda: |-
+      if (!id(battery_voltage_raw).has_state()) {
+        return {};  // No reading available yet.
+      }
+      return id(battery_voltage_raw).state;
+  - platform: template
     id: battery_level
     unit_of_measurement: "%"
     device_class: battery
