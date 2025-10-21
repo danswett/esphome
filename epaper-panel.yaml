@@ -83,8 +83,10 @@ sensor:
     update_interval: never
     filters:
       # The onboard voltage divider scales the pack voltage down for the ADC.
-      # Adjust this multiplier if your hardware uses a different ratio.
-      - multiply: 2.0
+      # Adjust this multiplier if your hardware uses a different ratio. The
+      # stock driver board divides the voltage roughly by four, so compensate
+      # for that here.
+      - multiply: 4.0
   - platform: template
     id: battery_level
     unit_of_measurement: "%"
@@ -172,8 +174,17 @@ script:
   - id: schedule_refresh
     mode: restart
     then:
-      - delay: 5s
-      - script.execute: refresh_display_and_sleep
+      - if:
+          condition:
+            lambda: |-
+              return id(refresh_display_and_sleep).is_running();
+          then:
+            - logger.log:
+                format: "Refresh already in progress; skipping new schedule"
+                level: DEBUG
+          else:
+            - delay: 5s
+            - script.execute: refresh_display_and_sleep
   - id: refresh_display_and_sleep
     mode: restart
     then:
