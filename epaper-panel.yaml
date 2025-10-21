@@ -113,16 +113,11 @@ sensor:
       if (!id(battery_voltage).has_state()) {
         return NAN;
       }
-      const float min_voltage = 3.3f;
+      const float min_voltage = 3.0f;
       const float max_voltage = 4.2f;
       float percent = (id(battery_voltage).state - min_voltage) /
                       (max_voltage - min_voltage) * 100.0f;
-      if (percent < 0.0f) {
-        return 0.0f;
-      }
-      if (percent > 100.0f) {
-        return 100.0f;
-      }
+      percent = esphome::clamp(percent, 0.0f, 100.0f);
       return percent;
   - platform: homeassistant
     entity_id: sensor.family_room_air_quality_index_epa
@@ -258,16 +253,22 @@ display:
       it.printf(LEFT_COLUMN_X, MARGIN, id(font_medium), "Family Room Air Quality");
       it.horizontal_line(MARGIN, HEADER_BOTTOM, SCREEN_WIDTH - (2 * MARGIN));
 
-      auto draw_sensor_row = [&](int row_y, const char *label, float value, const char *unit) -> int {
+      auto draw_sensor_row = [&](int row_y, const char *label, float value, const char *unit, int decimals = 0) -> int {
         it.printf(LEFT_COLUMN_X, row_y, id(font_small), "%s", label);
         const int value_anchor_x = LEFT_COLUMN_X + COLUMN_WIDTH;
         const int value_offset_y = row_y - 6;
         if (!isnan(value)) {
-          if (unit != nullptr && unit[0] != '\0') {
-            it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%.0f %s", value, unit);
+          std::string value_text;
+          if (decimals == 0) {
+            value_text = esphome::str_sprintf("%.0f", value);
           } else {
-            it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%.0f", value);
+            value_text = esphome::str_sprintf("%.*f", decimals, value);
           }
+          if (unit != nullptr && unit[0] != '\0') {
+            value_text += " ";
+            value_text += unit;
+          }
+          it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%s", value_text.c_str());
         } else {
           it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "--");
         }
@@ -333,6 +334,7 @@ display:
       sensor_y = draw_sensor_row(sensor_y, "Pool", id(pool_temperature).state, "°");
       sensor_y = draw_sensor_row(sensor_y, "Spa", id(spa_temperature).state, "°");
       sensor_y = draw_sensor_row(sensor_y, "Battery", id(battery_level).state, "%");
+      sensor_y = draw_sensor_row(sensor_y, "Battery V", id(battery_voltage).state, "V", 2);
 
       int weather_y = CONTENT_TOP;
       if (id(nowcast_summary).has_state() && !id(nowcast_summary).state.empty()) {
