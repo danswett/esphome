@@ -4,8 +4,9 @@ esphome:
   on_boot:
     priority: -100
     then:
-      - component.update: battery_voltage
+      - component.update: battery_voltage_raw
       - delay: 200ms
+      - component.update: battery_voltage
       - component.update: battery_level
       - wait_until:
           condition:
@@ -78,13 +79,27 @@ sensor:
         - script.execute: schedule_refresh
   - platform: adc
     pin: GPIO0
-    id: battery_voltage
+    id: battery_voltage_raw
+    internal: true
     attenuation: 11db
     update_interval: never
-    filters:
-      # The onboard voltage divider scales the pack voltage down for the ADC.
-      # Adjust this multiplier if your hardware uses a different ratio.
-      - multiply: 2.0
+  - platform: template
+    id: battery_voltage
+    name: "Battery Voltage"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: never
+    lambda: |-
+      if (!id(battery_voltage_raw).has_state()) {
+        return NAN;
+      }
+      // The onboard divider drops the pack voltage to the ADC input.
+      // Multiply by the measured divider ratio so we publish the actual
+      // battery voltage. Adjust this if your hardware uses a different ratio.
+      const float divider_ratio = 3.73f;
+      return id(battery_voltage_raw).state * divider_ratio;
   - platform: template
     id: battery_level
     unit_of_measurement: "%"
@@ -172,13 +187,23 @@ script:
   - id: schedule_refresh
     mode: restart
     then:
-      - delay: 5s
-      - script.execute: refresh_display_and_sleep
+      - if:
+          condition:
+            lambda: |-
+              return id(refresh_display_and_sleep).is_running();
+          then:
+            - logger.log:
+                format: "Refresh already in progress; skipping new schedule"
+                level: DEBUG
+          else:
+            - delay: 5s
+            - script.execute: refresh_display_and_sleep
   - id: refresh_display_and_sleep
     mode: restart
     then:
-      - component.update: battery_voltage
+      - component.update: battery_voltage_raw
       - delay: 200ms
+      - component.update: battery_voltage
       - component.update: battery_level
       - if:
           condition:
