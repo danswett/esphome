@@ -221,8 +221,20 @@ script:
                   id(last_update_epoch) = id(homeassistant_time).now().timestamp;
                 }
             - component.update: main_display
-            - delay: 15s
-            - deep_sleep.enter: deep_sleep_ctrl
+            - if:
+                condition:
+                  lambda: |-
+                    return id(epaper_panel_charging).has_state() &&
+                           id(epaper_panel_charging).state;
+                then:
+                  - logger.log:
+                      format: "Device charging; staying awake for frequent refresh"
+                      level: DEBUG
+                  - delay: 2min
+                  - script.execute: refresh_display_and_sleep
+                else:
+                  - delay: 15s
+                  - deep_sleep.enter: deep_sleep_ctrl
           else:
             - logger.log:
                 format: "Waiting for sensor data before refreshing display"
