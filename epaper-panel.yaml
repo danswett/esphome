@@ -113,7 +113,7 @@ sensor:
       if (!id(battery_voltage).has_state()) {
         return NAN;
       }
-      const float min_voltage = 0.0f;
+      const float min_voltage = 2.3f;
       const float max_voltage = 4.2f;
       float percent = (id(battery_voltage).state - min_voltage) /
                       (max_voltage - min_voltage) * 100.0f;
@@ -169,6 +169,14 @@ sensor:
     attribute: precipitation_probability
     id: nowcast_precipitation_probability
     on_value:
+      then:
+        - script.execute: schedule_refresh
+
+binary_sensor:
+  - platform: homeassistant
+    entity_id: binary_sensor.epaper_panel_charging
+    id: epaper_panel_charging
+    on_state:
       then:
         - script.execute: schedule_refresh
 
@@ -275,6 +283,14 @@ display:
         return row_y + 56;
       };
 
+      auto draw_sensor_row_text = [&](int row_y, const char *label, const std::string &value_text) -> int {
+        it.printf(LEFT_COLUMN_X, row_y, id(font_small), "%s", label);
+        const int value_anchor_x = LEFT_COLUMN_X + COLUMN_WIDTH;
+        const int value_offset_y = row_y - 4;
+        it.printf(value_anchor_x, value_offset_y, id(font_large), esphome::display::TextAlign::TOP_RIGHT, "%s", value_text.c_str());
+        return row_y + 56;
+      };
+
       auto render_wrapped_text = [&](int x, int base_y, const std::string &text, esphome::font::Font *font, int max_width) -> int {
         int y_cursor = base_y;
         auto print_line = [&](const std::string &line) {
@@ -333,7 +349,11 @@ display:
       sensor_y = draw_sensor_row(sensor_y, "Outdoor AQI", id(outdoor_aqi).state, "");
       sensor_y = draw_sensor_row(sensor_y, "Pool", id(pool_temperature).state, "°");
       sensor_y = draw_sensor_row(sensor_y, "Spa", id(spa_temperature).state, "°");
-      sensor_y = draw_sensor_row(sensor_y, "Battery", id(battery_level).state, "%");
+      if (id(epaper_panel_charging).has_state() && id(epaper_panel_charging).state) {
+        sensor_y = draw_sensor_row_text(sensor_y, "Battery", "Charging");
+      } else {
+        sensor_y = draw_sensor_row(sensor_y, "Battery", id(battery_level).state, "%");
+      }
       sensor_y = draw_sensor_row(sensor_y, "Battery V", id(battery_voltage).state, "V", 2);
 
       int weather_y = CONTENT_TOP;
