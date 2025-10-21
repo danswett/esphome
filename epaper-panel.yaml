@@ -4,8 +4,9 @@ esphome:
   on_boot:
     priority: -100
     then:
-      - component.update: battery_voltage
+      - component.update: battery_voltage_raw
       - delay: 200ms
+      - component.update: battery_voltage
       - component.update: battery_level
       - wait_until:
           condition:
@@ -78,7 +79,8 @@ sensor:
         - script.execute: schedule_refresh
   - platform: adc
     pin: GPIO0
-    id: battery_voltage
+    id: battery_voltage_raw
+    internal: true
     attenuation: 11db
     update_interval: never
     filters:
@@ -188,8 +190,9 @@ script:
   - id: refresh_display_and_sleep
     mode: restart
     then:
-      - component.update: battery_voltage
+      - component.update: battery_voltage_raw
       - delay: 200ms
+      - component.update: battery_voltage
       - component.update: battery_level
       - if:
           condition:
