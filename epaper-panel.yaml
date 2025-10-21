@@ -165,8 +165,7 @@ sensor:
       then:
         - script.execute: schedule_refresh
   - platform: homeassistant
-    entity_id: weather.tomorrow_io_nowcast
-    attribute: precipitation_probability
+    entity_id: sensor.pirateweather_precip_probability
     id: nowcast_precipitation_probability
     on_value:
       then:
