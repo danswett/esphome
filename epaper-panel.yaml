@@ -117,7 +117,7 @@ sensor:
         return NAN;
       }
       const float min_voltage = 2.3f;
-      const float max_voltage = 4.2f;
+      const float max_voltage = 2.5f;
       float percent = (id(battery_voltage).state - min_voltage) /
                       (max_voltage - min_voltage) * 100.0f;
       percent = esphome::clamp(percent, 0.0f, 100.0f);
