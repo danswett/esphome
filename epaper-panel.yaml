@@ -66,12 +66,15 @@ globals:
     initial_value: '0'
 
 font:
-  - file: "fonts/helvB24.bdf"
+  - file: "gfonts://Roboto@700"
     id: font_large
-  - file: "fonts/helvB18.bdf"
+    size: 24
+  - file: "gfonts://Roboto@500"
     id: font_medium
-  - file: "fonts/helvB14.bdf"
+    size: 18
+  - file: "gfonts://Roboto@500"
     id: font_small
+    size: 14
 
 sensor:
   - platform: homeassistant
