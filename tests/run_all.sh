@@ -18,6 +18,20 @@ fi
 
 export ESPHOME_SECRETS="$SECRETS_FILE"
 
+TEMP_SECRETS_CREATED=0
+if [ ! -e secrets.yaml ]; then
+  cp "$SECRETS_FILE" secrets.yaml
+  TEMP_SECRETS_CREATED=1
+fi
+
+cleanup() {
+  if [ "$TEMP_SECRETS_CREATED" -eq 1 ]; then
+    rm -f secrets.yaml
+  fi
+}
+
+trap cleanup EXIT
+
 esphome config epaper-panel.yaml
 esphome compile epaper-panel.yaml
 
