@@ -5,3 +5,4 @@
 /secrets.yaml
 tests/refresh_logic_test
 tests/__pycache__/
+tests/secrets.yaml

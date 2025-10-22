@@ -1,18 +1,22 @@
+import importlib
+import importlib.util
 import unittest
 from pathlib import Path
 
-import yaml
 
+_YAML_SPEC = importlib.util.find_spec("yaml")
+if _YAML_SPEC is not None:
+    yaml = importlib.import_module("yaml")
 
-class _SecretsPreservingLoader(yaml.SafeLoader):
-    pass
+    class _SecretsPreservingLoader(yaml.SafeLoader):
+        pass
 
+    def _construct_secret(loader, node):
+        return node.value
 
-def _construct_secret(loader, node):
-    return node.value
-
-
-_SecretsPreservingLoader.add_constructor("!secret", _construct_secret)
+    _SecretsPreservingLoader.add_constructor("!secret", _construct_secret)
+else:
+    yaml = None
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "epaper-panel.yaml"
 
@@ -20,6 +24,8 @@ CONFIG_PATH = Path(__file__).resolve().parent.parent / "epaper-panel.yaml"
 class RefreshScriptStructureTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if yaml is None:
+            raise unittest.SkipTest("PyYAML is not installed")
         with CONFIG_PATH.open("r", encoding="utf-8") as handle:
             cls.config = yaml.load(handle, Loader=_SecretsPreservingLoader)
 
