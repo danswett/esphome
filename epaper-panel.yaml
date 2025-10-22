@@ -1,6 +1,8 @@
 esphome:
   name: epaper-panel
   friendly_name: ePaper Panel
+  includes:
+    - custom_components/refresh_logic/refresh_logic.h
   on_boot:
     priority: -100
     then:
@@ -58,17 +60,18 @@ globals:
     type: int
     restore_value: no
     initial_value: '0'
+  - id: refresh_action_decision
+    type: int
+    restore_value: no
+    initial_value: '0'
 
 font:
-  - file: "gfonts://Roboto"
+  - file: "fonts/helvB24.bdf"
     id: font_large
-    size: 48
-  - file: "gfonts://Roboto"
+  - file: "fonts/helvB18.bdf"
     id: font_medium
-    size: 32
-  - file: "gfonts://Roboto"
+  - file: "fonts/helvB14.bdf"
     id: font_small
-    size: 24
 
 sensor:
   - platform: homeassistant
@@ -209,26 +212,43 @@ script:
       - delay: 200ms
       - component.update: battery_voltage
       - component.update: battery_level
+      - lambda: |-
+          esphome::refresh_logic::RefreshContext ctx;
+          ctx.sensors_ready = id(family_room_co2).has_state() &&
+                              id(family_room_aqi).has_state() &&
+                              id(outdoor_aqi).has_state();
+          ctx.charging_state_available = id(epaper_panel_charging).has_state();
+          ctx.charging_state = ctx.charging_state_available && id(epaper_panel_charging).state;
+          id(refresh_action_decision) = static_cast<int>(esphome::refresh_logic::decide(ctx));
       - if:
           condition:
             lambda: |-
-              return id(family_room_co2).has_state() &&
-                     id(family_room_aqi).has_state() &&
-                     id(outdoor_aqi).has_state();
+              return id(refresh_action_decision) == static_cast<int>(esphome::refresh_logic::RefreshAction::WAIT_FOR_DATA);
           then:
-            - lambda: |-
-                if (id(homeassistant_time).now().is_valid()) {
-                  id(last_update_epoch) = id(homeassistant_time).now().timestamp;
-                }
-            - component.update: main_display
-            - delay: 15s
-            - deep_sleep.enter: deep_sleep_ctrl
-          else:
             - logger.log:
                 format: "Waiting for sensor data before refreshing display"
                 level: INFO
             - delay: 1s
             - script.execute: refresh_display_and_sleep
+          else:
+            - lambda: |-
+                if (id(homeassistant_time).now().is_valid()) {
+                  id(last_update_epoch) = id(homeassistant_time).now().timestamp;
+                }
+            - component.update: main_display
+            - if:
+                condition:
+                  lambda: |-
+                    return id(refresh_action_decision) == static_cast<int>(esphome::refresh_logic::RefreshAction::STAY_AWAKE);
+                then:
+                  - logger.log:
+                      format: "Device charging; staying awake for frequent refresh"
+                      level: DEBUG
+                  - delay: 2min
+                  - script.execute: refresh_display_and_sleep
+                else:
+                  - delay: 15s
+                  - deep_sleep.enter: deep_sleep_ctrl
 
 spi:
   clk_pin: GPIO8
